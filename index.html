@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Scaling Demo</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial;
+            background: linear-gradient(135deg, #e0e7ff, #fce7f3);
+            color: #333;
+            transition: 0.4s;
+        }
+
+        body.dark {
+            background: linear-gradient(135deg, #1e1b4b, #312e81);
+            color: #eee;
+        }
+
+        .header {
+            position: relative;
+            text-align: center;
+            padding: 10px;
+        }
+
+        h1 {
+            margin: 0;
+            color: #4a6cf7;
+        }
+
+        body.dark h1 {
+            color: #66d9ff;
+        }
+
+        p {
+            text-align: center;
+            max-width: 800px;
+            margin: 10px auto;
+        }
+
+        .switch {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+        }
+
+        .main {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        /* MATRIX */
+        .matrix {
+            font-family: monospace;
+            font-size: 28px;
+            margin-right: 60px;
+            padding: 25px;
+            border: 3px solid #ffb6c1;
+            border-radius: 12px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: repeat(3, 70px);
+            justify-content: center;
+            text-align: center;
+            margin: 5px 0;
+        }
+
+        .header-row {
+            font-weight: bold;
+            margin-bottom: 20px; 
+    letter-spacing: 8px;
+        }
+
+        /* CANVAS */
+        #canvas-container {
+            width: 400px;
+            height: 300px;
+            background: #dfe6ff;
+            border-radius: 10px;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        body.dark #canvas-container {
+            background: #2a1f3d;
+        }
+
+        /* STATIC GLOW */
+        #canvas-container::before {
+            content: "";
+            position: absolute;
+            width: 120%;
+            height: 120%;
+            top: -10%;
+            left: -10%;
+            background: radial-gradient(circle, #ffb6c1, #a5b4fc, #6ee7b7);
+            filter: blur(40px);
+            opacity: 0.5;
+            z-index: -1;
+        }
+
+        #controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        input[type="range"] {
+            accent-color: #ff7aa2;
+        }
+        .footer {
+    margin-top: 40px;
+    padding: 15px;
+    text-align: center;
+    border-top: 4px solid #ffb6c1;
+    font-size: 14px;
+    background: rgba(255,255,255,0.3);
+}
+
+body.dark .footer {
+    background: rgba(0,0,0,0.3);
+    border-top: 4px solid #66d9ff;
+}
+    </style>
+</head>
+
+<body>
+
+<div class="header">
+    <h1>3D Scaling Transformation</h1>
+
+    <label class="switch">
+        <input type="checkbox" onchange="toggleMode(this)">
+        🌙
+    </label>
+</div>
+
+<p>
+Scaling is a 3D transformation that changes the size of an object along the X, Y, and Z axes.
+It is performed using scaling factors (Sx, Sy, Sz). Uniform scaling maintains proportions,
+while non-uniform scaling stretches the object differently along each axis.
+</p>
+
+<div class="main">
+
+    <!-- MATRIX -->
+    <div class="matrix">
+
+        <div class="row header-row">
+            <span>X</span>
+            <span>Y</span>
+            <span>Z</span>
+        </div>
+
+        <div class="row">
+            <span id="m1">1.0</span>
+            <span>0</span>
+            <span>0</span>
+        </div>
+
+        <div class="row">
+            <span>0</span>
+            <span id="m2">1.0</span>
+            <span>0</span>
+        </div>
+
+        <div class="row">
+            <span>0</span>
+            <span>0</span>
+            <span id="m3">1.0</span>
+        </div>
+
+    </div>
+
+    <!-- CUBE -->
+    <div id="canvas-container"></div>
+
+</div>
+
+<div id="controls">
+    <label>Sx: <input type="range" id="sx" min="0.5" max="5" step="0.1" value="1"></label>
+    <label>Sy: <input type="range" id="sy" min="0.5" max="5" step="0.1" value="1"></label>
+    <label>Sz: <input type="range" id="sz" min="0.5" max="5" step="0.1" value="1"></label>
+    <br>
+    <label>Cube Color: <input type="color" id="colorPicker" value="#ffb6c1"></label>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(75, 400/300, 0.1, 1000);
+camera.position.z = 5;
+
+const renderer = new THREE.WebGLRenderer({ alpha: true });
+renderer.setSize(400, 300);
+renderer.setClearColor(0x000000, 0);
+document.getElementById("canvas-container").appendChild(renderer.domElement);
+
+/* WIREFRAME CUBE */
+const geometry = new THREE.BoxGeometry();
+const material = new THREE.MeshBasicMaterial({
+    color: 0xffb6c1,
+    wireframe: true
+});
+const cube = new THREE.Mesh(geometry, material);
+scene.add(cube);
+
+/* CONTROLS */
+const sx = document.getElementById("sx");
+const sy = document.getElementById("sy");
+const sz = document.getElementById("sz");
+const colorPicker = document.getElementById("colorPicker");
+
+const m1 = document.getElementById("m1");
+const m2 = document.getElementById("m2");
+const m3 = document.getElementById("m3");
+
+let targetScale = {x:1, y:1, z:1};
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    targetScale.x = parseFloat(sx.value);
+    targetScale.y = parseFloat(sy.value);
+    targetScale.z = parseFloat(sz.value);
+
+    cube.scale.x += (targetScale.x - cube.scale.x) * 0.1;
+    cube.scale.y += (targetScale.y - cube.scale.y) * 0.1;
+    cube.scale.z += (targetScale.z - cube.scale.z) * 0.1;
+
+    m1.innerText = targetScale.x.toFixed(1);
+    m2.innerText = targetScale.y.toFixed(1);
+    m3.innerText = targetScale.z.toFixed(1);
+
+    cube.material.color.set(colorPicker.value);
+    document.querySelector(".matrix").style.borderColor = colorPicker.value;
+
+    renderer.render(scene, camera);
+}
+
+/* HOVER ZOOM */
+document.getElementById("canvas-container").addEventListener("mouseenter", () => {
+    camera.position.z = 4;
+});
+
+document.getElementById("canvas-container").addEventListener("mouseleave", () => {
+    camera.position.z = 5;
+});
+
+function toggleMode(el) {
+    document.body.classList.toggle("dark", el.checked);
+}
+
+animate();
+</script>
+<footer class="footer">
+    <p><strong>Name:</strong> SPRIHA SHRIVASTAVA</p>
+    <p><strong>Reg No:</strong> RA2411003010341</p>
+    <p><strong>Section:</strong> F1</p>
+    <p><strong>Technologies Used:</strong> HTML, CSS, JavaScript, Three.js</p>
+</footer>
+</body>
+</html>
